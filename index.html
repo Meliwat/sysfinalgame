@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SysFinalGame</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <svg class="brand-mark" viewBox="0 0 88 88" role="img" aria-labelledby="brand-title">
+            <title id="brand-title">SysFinalGame terminal badge</title>
+            <rect x="6" y="10" width="76" height="58" rx="7"></rect>
+            <path d="M19 29l12 10-12 10"></path>
+            <path d="M39 52h24"></path>
+            <path d="M20 73h48"></path>
+          </svg>
+          <div>
+            <p class="eyebrow">CSC 4320 Final Exam</p>
+            <h1>SysFinalGame</h1>
+          </div>
+        </div>
+        <div class="rank-strip" data-testid="rank-strip">
+          <div>
+            <span class="metric-label">Rank</span>
+            <strong id="rankName">Terminal Trainee</strong>
+          </div>
+          <div>
+            <span class="metric-label">Level</span>
+            <strong id="levelValue">1</strong>
+          </div>
+          <div>
+            <span class="metric-label">Streak</span>
+            <strong id="streakValue">0</strong>
+          </div>
+        </div>
+      </header>
+
+      <main class="game-layout">
+        <section class="arena" aria-label="Study arena">
+          <div class="modebar" role="tablist" aria-label="Study mode">
+            <button class="mode-button is-active" type="button" data-mode="rapid" data-testid="mode-rapid">
+              <span class="mode-icon">RF</span>
+              <span>Rapid Fire</span>
+            </button>
+            <button class="mode-button" type="button" data-mode="commands" data-testid="mode-commands">
+              <span class="mode-icon">CL</span>
+              <span>Command Lab</span>
+            </button>
+            <button class="mode-button" type="button" data-mode="ports" data-testid="mode-ports">
+              <span class="mode-icon">PS</span>
+              <span>Port Sprint</span>
+            </button>
+            <button class="mode-button" type="button" data-mode="permissions" data-testid="mode-permissions">
+              <span class="mode-icon">PF</span>
+              <span>Permission Forge</span>
+            </button>
+            <button class="mode-button boss-button" type="button" data-mode="boss" data-testid="mode-boss">
+              <span class="mode-icon">BX</span>
+              <span>Boss Exam</span>
+            </button>
+          </div>
+
+          <div class="arena-toolbar">
+            <label class="select-wrap">
+              <span>Topic</span>
+              <select id="topicSelect" data-testid="topic-select"></select>
+            </label>
+            <div class="session-meter">
+              <span id="modeTitle">Rapid Fire</span>
+              <strong id="sessionStatus">Question 1</strong>
+            </div>
+          </div>
+
+          <article class="challenge-panel" data-testid="challenge-panel">
+            <div class="challenge-meta">
+              <span id="topicPill" class="topic-pill">Commands</span>
+              <span id="difficultyPill" class="difficulty-pill">Core</span>
+            </div>
+            <h2 id="questionPrompt">Loading question...</h2>
+            <div id="answerArea" class="answer-area"></div>
+            <div id="feedback" class="feedback" data-testid="feedback" hidden></div>
+            <div class="action-row">
+              <button id="submitAnswer" class="primary-action" type="button" data-testid="submit-answer">Submit</button>
+              <button id="nextQuestion" class="secondary-action" type="button" data-testid="next-question" hidden>Next</button>
+            </div>
+          </article>
+        </section>
+
+        <aside class="hud" aria-label="Progress dashboard">
+          <section class="hud-panel level-panel">
+            <div class="hud-heading">
+              <h2>Progress</h2>
+              <button id="resetProgress" class="icon-button" type="button" title="Reset progress" aria-label="Reset progress">RST</button>
+            </div>
+            <div class="xp-line">
+              <span id="xpText">0 XP</span>
+              <span id="nextLevelText">90 XP to Level 2</span>
+            </div>
+            <div class="progress-track" aria-hidden="true">
+              <div id="xpBar" class="progress-fill"></div>
+            </div>
+            <p id="saveStatus" class="save-note" data-testid="save-status">Saved locally in this browser</p>
+            <div class="stat-grid">
+              <div><span>Accuracy</span><strong id="accuracyText">0%</strong></div>
+              <div><span>Answered</span><strong id="answeredText">0</strong></div>
+              <div><span>Best Streak</span><strong id="bestStreakText">0</strong></div>
+              <div><span>Boss Clears</span><strong id="bossText">0</strong></div>
+            </div>
+          </section>
+
+          <section class="hud-panel map-panel">
+            <h2>Exam Map</h2>
+            <svg class="exam-map" viewBox="0 0 320 150" role="img" aria-labelledby="map-title">
+              <title id="map-title">Topic coverage map</title>
+              <path class="map-line" d="M32 106 C70 28, 118 122, 158 58 S246 40, 288 96"></path>
+              <g id="mapNodes"></g>
+            </svg>
+            <div id="masteryList" class="mastery-list"></div>
+          </section>
+
+          <section class="hud-panel daily-panel">
+            <h2>Daily Ops</h2>
+            <div id="dailyOps" class="daily-ops"></div>
+          </section>
+
+          <section class="hud-panel badge-panel">
+            <h2>Badges</h2>
+            <div id="badgeList" class="badge-list"></div>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
