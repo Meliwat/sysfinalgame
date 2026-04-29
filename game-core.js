@@ -80,7 +80,7 @@ export function scoreForAnswer(correct, question, streak, mode) {
   if (!correct) return 0;
   const difficulty = Number(question.difficulty || 1);
   const base = [0, 12, 18, 26][difficulty] || 12;
-  const modeBonus = mode === "boss" ? 8 : mode === "commands" || mode === "permissions" ? 4 : 0;
+  const modeBonus = mode === "boss" ? 8 : mode === "guided" ? 6 : mode === "commands" || mode === "permissions" ? 4 : 0;
   const streakBonus = Math.min(18, Math.max(0, streak - 1) * 2);
   return base + modeBonus + streakBonus;
 }
@@ -98,6 +98,113 @@ export function shuffle(items, random = Math.random) {
 
 export function choiceLetters(index) {
   return letters[index] || String(index + 1);
+}
+
+export function dayKey(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
+export function addDaysKey(date = new Date(), days = 1) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return dayKey(next);
+}
+
+export function conceptIdForQuestion(question) {
+  return question.id || `${question.mode || "question"}:${question.topic}:${question.prompt}`;
+}
+
+export function isReviewDue(stats, now = new Date()) {
+  return Boolean(stats?.nextReview && stats.nextReview <= dayKey(now));
+}
+
+export function updateConceptSchedule(previous = {}, correct, question = {}, now = new Date(), options = {}) {
+  const reviewed = dayKey(now);
+  const previousReview = previous.lastReviewed || null;
+  const spacedAttempt = Boolean(previousReview && previousReview !== reviewed);
+  const wasHinted = Boolean(options.hinted);
+  const correctRetrievals = (previous.correctRetrievals || 0) + (correct ? 1 : 0);
+  const incorrectRetrievals = (previous.incorrectRetrievals || 0) + (correct ? 0 : 1);
+  const hintedRetrievals = (previous.hintedRetrievals || 0) + (correct && wasHinted ? 1 : 0);
+  const currentInterval = previous.intervalDays || 0;
+  const difficulty = Number(question.difficulty || 1);
+
+  let intervalDays = 1;
+  let status = "needs_repair";
+
+  if (correct && wasHinted) {
+    status = "recalled_with_hint";
+    intervalDays = 1;
+  } else if (correct && spacedAttempt && correctRetrievals >= 3 && difficulty >= 2) {
+    status = "applied";
+    intervalDays = Math.min(30, Math.max(7, currentInterval ? Math.round(currentInterval * 2) : 7));
+  } else if (correct && spacedAttempt && correctRetrievals >= 2) {
+    status = "spaced";
+    intervalDays = Math.min(14, Math.max(3, currentInterval ? Math.round(currentInterval * 1.8) : 3));
+  } else if (correct) {
+    status = "recalled_once";
+    intervalDays = 1;
+  }
+
+  return {
+    topic: question.topic,
+    difficulty,
+    seen: (previous.seen || 0) + 1,
+    correctRetrievals,
+    incorrectRetrievals,
+    hintedRetrievals,
+    intervalDays,
+    lastReviewed: reviewed,
+    nextReview: addDaysKey(now, intervalDays),
+    status
+  };
+}
+
+export function masteryLabel(stats) {
+  if (!stats?.seen) return "New";
+  if (stats.status === "applied") return "Applied";
+  if (stats.status === "spaced") return "Spaced";
+  if (stats.status === "recalled_once") return "Recalled once";
+  if (stats.status === "recalled_with_hint") return "Hinted";
+  return "Needs repair";
+}
+
+export function reviewSummary(conceptStats = {}, now = new Date()) {
+  const stats = Object.values(conceptStats || {});
+  return {
+    due: stats.filter((item) => isReviewDue(item, now)).length,
+    needsRepair: stats.filter((item) => item.status === "needs_repair").length,
+    recalledOnce: stats.filter((item) => item.status === "recalled_once" || item.status === "recalled_with_hint").length,
+    spaced: stats.filter((item) => item.status === "spaced").length,
+    applied: stats.filter((item) => item.status === "applied").length
+  };
+}
+
+function conceptPriority(question, conceptStats) {
+  const stats = conceptStats[conceptIdForQuestion(question)];
+  if (!stats?.seen) return -100;
+  if (stats.status === "needs_repair") return -80;
+  return (stats.correctRetrievals || 0) * 5 - (stats.incorrectRetrievals || 0) * 4 + (stats.intervalDays || 0);
+}
+
+export function buildGuidedQuestion(topic = "all", conceptStats = {}, random = Math.random, options = {}) {
+  const excluded = new Set(options.excludeIds || []);
+  const topicPool = QUESTION_BANK.filter((item) => topic === "all" || item.topic === topic);
+  const pool = topicPool.filter((item) => !excluded.has(conceptIdForQuestion(item)));
+  const candidates = pool.length ? pool : topicPool.length ? topicPool : QUESTION_BANK;
+  const due = candidates.filter((question) => isReviewDue(conceptStats[conceptIdForQuestion(question)]));
+  if (due.length) {
+    return { ...randomItem(due, random), mode: "guided", phase: "review" };
+  }
+
+  const repair = candidates.filter((question) => conceptStats[conceptIdForQuestion(question)]?.status === "needs_repair");
+  if (repair.length) {
+    return { ...randomItem(repair, random), mode: "guided", phase: "repair" };
+  }
+
+  const sorted = shuffle(candidates, random).sort((left, right) => conceptPriority(left, conceptStats) - conceptPriority(right, conceptStats));
+  const easier = sorted.filter((question) => Number(question.difficulty || 1) <= 2).slice(0, 12);
+  return { ...(randomItem(easier.length ? easier : sorted, random) || randomItem(QUESTION_BANK, random)), mode: "guided", phase: "new" };
 }
 
 export function buildCommandQuestion(topic = "all", random = Math.random) {

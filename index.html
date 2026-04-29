@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SysFinalGame</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23111827'/%3E%3Cpath d='M16 23l10 9-10 9' fill='none' stroke='%23fef3c7' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M32 42h17' stroke='%232dd4bf' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
@@ -41,9 +42,13 @@
       <main class="game-layout">
         <section class="arena" aria-label="Study arena">
           <div class="modebar" role="tablist" aria-label="Study mode">
-            <button class="mode-button is-active" type="button" data-mode="rapid" data-testid="mode-rapid">
-              <span class="mode-icon">RF</span>
-              <span>Rapid Fire</span>
+            <button class="mode-button is-active" type="button" data-mode="guided" data-testid="mode-guided">
+              <span class="mode-icon">CP</span>
+              <span>Coach Path</span>
+            </button>
+            <button class="mode-button" type="button" data-mode="rapid" data-testid="mode-rapid">
+              <span class="mode-icon">RR</span>
+              <span>Recall Run</span>
             </button>
             <button class="mode-button" type="button" data-mode="commands" data-testid="mode-commands">
               <span class="mode-icon">CL</span>
@@ -78,12 +83,25 @@
             <div class="challenge-meta">
               <span id="topicPill" class="topic-pill">Commands</span>
               <span id="difficultyPill" class="difficulty-pill">Core</span>
+              <span id="reviewPill" class="review-pill">New</span>
             </div>
+            <section id="coachCard" class="coach-card" data-testid="coach-card">
+              <div class="coach-card-header">
+                <span class="coach-label">Coach</span>
+                <strong id="coachTitle">Mental model</strong>
+              </div>
+              <p id="coachObjective"></p>
+              <ul id="coachPoints"></ul>
+              <p id="coachTrap" class="coach-trap"></p>
+            </section>
             <h2 id="questionPrompt">Loading question...</h2>
             <div id="answerArea" class="answer-area"></div>
+            <div id="hintBox" class="hint-box" data-testid="hint-box" hidden></div>
             <div id="feedback" class="feedback" data-testid="feedback" hidden></div>
             <div class="action-row">
               <button id="submitAnswer" class="primary-action" type="button" data-testid="submit-answer">Submit</button>
+              <button id="hintButton" class="secondary-action" type="button" data-testid="hint-button">Hint</button>
+              <button id="teachMe" class="secondary-action" type="button" data-testid="teach-me">Teach me</button>
               <button id="nextQuestion" class="secondary-action" type="button" data-testid="next-question" hidden>Next</button>
             </div>
           </article>
@@ -119,6 +137,11 @@
               <g id="mapNodes"></g>
             </svg>
             <div id="masteryList" class="mastery-list"></div>
+          </section>
+
+          <section class="hud-panel coach-panel">
+            <h2>Coach Plan</h2>
+            <div id="coachPlan" class="coach-plan" data-testid="coach-plan"></div>
           </section>
 
           <section class="hud-panel daily-panel">

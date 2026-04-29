@@ -1,23 +1,29 @@
-import { BADGES, TOPICS } from "./study-data.js";
+import { BADGES, TOPIC_GUIDES, TOPICS } from "./study-data.js";
 import {
   buildBossDeck,
   buildCommandQuestion,
+  buildGuidedQuestion,
   buildPermissionQuestion,
   buildPortQuestion,
   buildRapidQuestion,
   choiceLetters,
+  conceptIdForQuestion,
   dailyGoalModels,
   evaluateAnswer,
   formatAnswer,
   levelFromXp,
   levelProgress,
+  masteryLabel,
   rankForLevel,
-  scoreForAnswer
+  reviewSummary,
+  scoreForAnswer,
+  updateConceptSchedule
 } from "./game-core.js";
 
 const storageKey = "sysfinalgame.v1";
 const modeNames = {
-  rapid: "Rapid Fire",
+  guided: "Coach Path",
+  rapid: "Recall Run",
   commands: "Command Lab",
   ports: "Port Sprint",
   permissions: "Permission Forge",
@@ -33,10 +39,19 @@ const elements = {
   topicSelect: document.querySelector("#topicSelect"),
   topicPill: document.querySelector("#topicPill"),
   difficultyPill: document.querySelector("#difficultyPill"),
+  reviewPill: document.querySelector("#reviewPill"),
+  coachCard: document.querySelector("#coachCard"),
+  coachTitle: document.querySelector("#coachTitle"),
+  coachObjective: document.querySelector("#coachObjective"),
+  coachPoints: document.querySelector("#coachPoints"),
+  coachTrap: document.querySelector("#coachTrap"),
   prompt: document.querySelector("#questionPrompt"),
   answerArea: document.querySelector("#answerArea"),
+  hintBox: document.querySelector("#hintBox"),
   feedback: document.querySelector("#feedback"),
   submit: document.querySelector("#submitAnswer"),
+  hint: document.querySelector("#hintButton"),
+  teachMe: document.querySelector("#teachMe"),
   next: document.querySelector("#nextQuestion"),
   xpText: document.querySelector("#xpText"),
   nextLevelText: document.querySelector("#nextLevelText"),
@@ -48,6 +63,7 @@ const elements = {
   bossText: document.querySelector("#bossText"),
   masteryList: document.querySelector("#masteryList"),
   mapNodes: document.querySelector("#mapNodes"),
+  coachPlan: document.querySelector("#coachPlan"),
   dailyOps: document.querySelector("#dailyOps"),
   badgeList: document.querySelector("#badgeList"),
   reset: document.querySelector("#resetProgress")
@@ -55,10 +71,12 @@ const elements = {
 
 let state = loadState();
 let app = {
-  mode: "rapid",
+  mode: "guided",
   topic: "all",
   current: null,
   selected: null,
+  hintsUsed: 0,
+  repair: null,
   locked: false,
   boss: null
 };
@@ -77,6 +95,7 @@ function defaultState() {
     bossClears: 0,
     modeWins: {},
     topicStats: {},
+    conceptStats: {},
     badges: [],
     daily: {
       date: todayKey(),
@@ -104,6 +123,7 @@ function normalizeState(candidate) {
     ...candidate,
     modeWins: { ...base.modeWins, ...(candidate.modeWins || {}) },
     topicStats: { ...base.topicStats, ...(candidate.topicStats || {}) },
+    conceptStats: { ...base.conceptStats, ...(candidate.conceptStats || {}) },
     daily: { ...base.daily, ...(candidate.daily || {}) }
   };
 
@@ -134,6 +154,7 @@ function setup() {
   elements.topicSelect.addEventListener("change", () => {
     app.topic = elements.topicSelect.value;
     app.boss = null;
+    app.repair = null;
     nextQuestion();
   });
 
@@ -141,12 +162,15 @@ function setup() {
     button.addEventListener("click", () => {
       app.mode = button.dataset.mode;
       app.boss = null;
+      app.repair = null;
       document.querySelectorAll("[data-mode]").forEach((item) => item.classList.toggle("is-active", item === button));
       nextQuestion();
     });
   });
 
-  elements.submit.addEventListener("click", submitAnswer);
+  elements.submit.addEventListener("click", () => submitAnswer());
+  elements.hint.addEventListener("click", showHint);
+  elements.teachMe.addEventListener("click", () => submitAnswer({ giveUp: true }));
   elements.next.addEventListener("click", () => {
     if (app.mode === "boss" && app.boss?.finished) {
       finishBoss();
@@ -170,16 +194,31 @@ function setup() {
 function nextQuestion() {
   app.locked = false;
   app.selected = app.current?.type === "multi" ? [] : null;
+  app.hintsUsed = 0;
   elements.feedback.hidden = true;
   elements.feedback.className = "feedback";
   elements.feedback.textContent = "";
+  elements.hintBox.hidden = true;
+  elements.hintBox.className = "hint-box";
+  elements.hintBox.textContent = "";
   elements.submit.hidden = false;
   elements.submit.disabled = false;
+  elements.hint.hidden = false;
+  elements.hint.disabled = false;
+  elements.teachMe.hidden = false;
+  elements.teachMe.disabled = false;
   elements.next.hidden = true;
 
   if (app.mode === "boss") {
     if (!app.boss) app.boss = { index: 0, correct: 0, deck: buildBossDeck(15), finished: false };
     app.current = app.boss.deck[app.boss.index];
+  } else if (app.repair) {
+    const repair = app.repair;
+    app.repair = null;
+    app.current = buildGuidedQuestion(repair.topic, state.conceptStats, Math.random, { excludeIds: [repair.skipId] });
+    app.current.phase = "repair";
+  } else if (app.mode === "guided") {
+    app.current = buildGuidedQuestion(app.topic, state.conceptStats);
   } else if (app.mode === "commands") {
     app.current = buildCommandQuestion(app.topic);
   } else if (app.mode === "ports") {
@@ -194,6 +233,32 @@ function nextQuestion() {
   renderDashboard();
 }
 
+function reviewLabel(question) {
+  if (question.phase === "review") return "Due review";
+  if (question.phase === "repair") return "Repair";
+  const stats = state.conceptStats[conceptIdForQuestion(question)];
+  return masteryLabel(stats);
+}
+
+function renderCoachCard(question) {
+  const guide = TOPIC_GUIDES[question.topic];
+  if (!guide || app.mode === "boss") {
+    elements.coachCard.hidden = true;
+    return;
+  }
+
+  elements.coachCard.hidden = false;
+  elements.coachTitle.textContent = guide.title;
+  elements.coachObjective.textContent = guide.objective;
+  elements.coachPoints.innerHTML = "";
+  guide.points.forEach((point) => {
+    const item = document.createElement("li");
+    item.textContent = point;
+    elements.coachPoints.append(item);
+  });
+  elements.coachTrap.textContent = guide.trap;
+}
+
 function renderQuestion() {
   const question = app.current;
   const topic = TOPICS.find((item) => item.id === question.topic);
@@ -202,8 +267,10 @@ function renderQuestion() {
     app.mode === "boss" && app.boss ? `Question ${app.boss.index + 1} of ${app.boss.deck.length}` : `Question ${state.total + 1}`;
   elements.topicPill.textContent = topic ? `${topic.code} / ${topic.label}` : "Mixed";
   elements.difficultyPill.textContent = ["Warmup", "Core", "Applied", "Trap"][question.difficulty || 1] || "Core";
+  elements.reviewPill.textContent = reviewLabel(question);
   elements.prompt.textContent = question.prompt;
   elements.answerArea.innerHTML = "";
+  renderCoachCard(question);
 
   if (question.type === "choice" || question.type === "multi") {
     question.choices.forEach((choice, index) => {
@@ -252,15 +319,18 @@ function selectChoice(index, button) {
   button.classList.add("is-selected");
 }
 
-function submitAnswer() {
+function submitAnswer(options = {}) {
   if (app.locked) return;
   const hasAnswer = app.current.type === "multi" ? Array.isArray(app.selected) && app.selected.length > 0 : app.selected !== null && app.selected !== "";
-  if (!hasAnswer) return;
+  if (!hasAnswer && !options.giveUp) return;
 
   const oldLevel = levelFromXp(state.xp);
-  const willBeCorrect = evaluateAnswer(app.current, app.selected);
+  const willBeCorrect = options.giveUp ? false : evaluateAnswer(app.current, app.selected);
   const nextStreak = willBeCorrect ? state.currentStreak + 1 : 0;
-  const gained = scoreForAnswer(willBeCorrect, app.current, nextStreak, app.mode);
+  const hinted = app.hintsUsed > 0 || options.giveUp;
+  const rawScore = scoreForAnswer(willBeCorrect, app.current, nextStreak, app.mode);
+  const gained = willBeCorrect && hinted ? Math.max(4, Math.round(rawScore * 0.6)) : rawScore;
+  const conceptId = conceptIdForQuestion(app.current);
 
   state.total += 1;
   state.currentStreak = nextStreak;
@@ -277,21 +347,31 @@ function submitAnswer() {
   state.topicStats[app.current.topic] = stats;
 
   markDaily(app.mode, app.current.topic, willBeCorrect);
+  state.conceptStats[conceptId] = updateConceptSchedule(
+    state.conceptStats[conceptId],
+    willBeCorrect,
+    app.current,
+    new Date(),
+    { hinted }
+  );
 
   if (willBeCorrect && app.mode !== "rapid") {
     state.modeWins[app.mode] = (state.modeWins[app.mode] || 0) + 1;
   }
 
   if (app.mode === "boss" && willBeCorrect) app.boss.correct += 1;
+  if (!willBeCorrect && app.mode !== "boss") app.repair = { topic: app.current.topic, skipId: conceptId };
 
   const newLevel = levelFromXp(state.xp);
   const newBadges = awardBadges();
   saveState();
-  showFeedback(willBeCorrect, gained, oldLevel, newLevel, newBadges);
+  showFeedback(willBeCorrect, gained, oldLevel, newLevel, newBadges, state.conceptStats[conceptId], options);
   renderDashboard();
 
   app.locked = true;
   elements.submit.hidden = true;
+  elements.hint.hidden = true;
+  elements.teachMe.hidden = true;
 
   if (app.mode === "boss") {
     app.boss.index += 1;
@@ -307,18 +387,47 @@ function submitAnswer() {
   elements.next.hidden = false;
 }
 
-function showFeedback(correct, gained, oldLevel, newLevel, newBadges) {
-  const result = correct ? "Correct" : "Review";
+function answerScaffold(question) {
+  if (question.type === "text") {
+    const firstToken = formatAnswer(question).split(/\s+/)[0];
+    return `The answer starts with \`${firstToken}\`; fill in the options and target carefully.`;
+  }
+  if (question.type === "multi") return "More than one choice may be true. Eliminate each false statement one at a time.";
+  return "Say the concept in your own words, then choose the option that matches that meaning.";
+}
+
+function showHint() {
+  if (app.locked) return;
+  app.hintsUsed += 1;
+  const guide = TOPIC_GUIDES[app.current.topic];
+  const topic = TOPICS.find((item) => item.id === app.current.topic);
+  const hints = [
+    `First identify the topic: ${topic?.label || "this topic"}. What is the prompt asking you to produce?`,
+    guide?.hint || "Look for the key noun and verb in the prompt before choosing.",
+    answerScaffold(app.current)
+  ];
+  const hint = hints[Math.min(app.hintsUsed - 1, hints.length - 1)];
+  elements.hintBox.hidden = false;
+  elements.hintBox.innerHTML = `<strong>Hint ${Math.min(app.hintsUsed, hints.length)} of ${hints.length}</strong><p></p>`;
+  elements.hintBox.querySelector("p").textContent = hint;
+  if (app.hintsUsed >= hints.length) elements.hint.disabled = true;
+}
+
+function showFeedback(correct, gained, oldLevel, newLevel, newBadges, conceptStats, options = {}) {
+  const result = correct ? "Retrieved" : options.giveUp ? "Taught" : "Needs repair";
   const answer = formatAnswer(app.current);
   const levelText = newLevel > oldLevel ? ` Level ${newLevel} reached.` : "";
   const badgeText = newBadges.length ? ` Badge earned: ${newBadges.map((badge) => badge.name).join(", ")}.` : "";
+  const statusText = masteryLabel(conceptStats);
+  const nextReviewText = conceptStats?.nextReview ? `Next review: ${conceptStats.nextReview}.` : "";
+  const repairText = correct ? "This concept stays in the spacing queue." : "A same-topic repair question is queued next.";
   elements.feedback.hidden = false;
   elements.feedback.classList.add(correct ? "is-correct" : "is-wrong");
   elements.feedback.innerHTML = `
     <strong>${result}${correct ? ` +${gained} XP` : ""}</strong>
     <div>Answer: <code></code></div>
     <p></p>
-    <span>${levelText}${badgeText}</span>
+    <span>${statusText}. ${nextReviewText} ${repairText}${levelText}${badgeText}</span>
   `;
   elements.feedback.querySelector("code").textContent = answer;
   elements.feedback.querySelector("p").textContent = app.current.explain;
@@ -332,8 +441,9 @@ function finishBoss() {
   state.xp += bonus;
   if (passed) state.bossClears += 1;
   const newBadges = awardBadges();
-  saveState();
-  app.boss = null;
+    saveState();
+    app.boss = null;
+    app.repair = null;
   elements.modeTitle.textContent = modeNames.boss;
   elements.sessionStatus.textContent = "Complete";
   elements.topicPill.textContent = "BX / Boss Exam";
@@ -416,6 +526,7 @@ function renderDashboard() {
   elements.bestStreakText.textContent = state.bestStreak;
   elements.bossText.textContent = state.bossClears;
   renderMastery();
+  renderCoachPlan();
   renderDaily();
   renderBadges();
   drawMap();
@@ -424,15 +535,63 @@ function renderDashboard() {
 function renderMastery() {
   elements.masteryList.innerHTML = TOPICS.map((topic) => {
     const stats = state.topicStats[topic.id] || { correct: 0 };
-    const percent = Math.min(100, Math.round((stats.correct / 6) * 100));
+    const conceptStats = Object.values(state.conceptStats || {}).filter((item) => item.topic === topic.id);
+    const conceptScore = conceptStats.reduce((total, item) => {
+      if (item.status === "applied") return total + 4;
+      if (item.status === "spaced") return total + 3;
+      if (item.status === "recalled_once") return total + 2;
+      if (item.status === "recalled_with_hint") return total + 1;
+      return total + 0.5;
+    }, 0);
+    const percent = conceptStats.length
+      ? Math.min(100, Math.round((conceptScore / Math.max(6, conceptStats.length * 4)) * 100))
+      : Math.min(100, Math.round((stats.correct / 6) * 100));
+    const status = percent >= 70 ? "Spaced" : percent > 0 ? "Learning" : "New";
     return `
       <div class="mastery-row">
         <span>${topic.code}</span>
         <div class="mini-track" aria-hidden="true"><div class="mini-fill" style="width:${percent}%"></div></div>
-        <strong>${percent}%</strong>
+        <strong title="${status}">${percent}%</strong>
       </div>
     `;
   }).join("");
+}
+
+function weakestTopic() {
+  return TOPICS
+    .map((topic) => {
+      const stats = state.topicStats[topic.id] || { seen: 0, correct: 0 };
+      const accuracy = stats.seen ? stats.correct / stats.seen : 1;
+      return { topic, stats, accuracy };
+    })
+    .filter((item) => item.stats.seen > 0)
+    .sort((left, right) => left.accuracy - right.accuracy || right.stats.seen - left.stats.seen)[0];
+}
+
+function renderCoachPlan() {
+  const summary = reviewSummary(state.conceptStats);
+  const weak = weakestTopic();
+  const untouched = TOPICS.find((topic) => !state.topicStats[topic.id]?.seen);
+  const nextTopic = weak?.topic || untouched || TOPICS[0];
+
+  elements.coachPlan.innerHTML = `
+    <div class="coach-plan-row">
+      <span>Due today</span>
+      <strong>${summary.due}</strong>
+    </div>
+    <div class="coach-plan-row">
+      <span>Needs repair</span>
+      <strong>${summary.needsRepair}</strong>
+    </div>
+    <div class="coach-plan-row">
+      <span>Ready for spacing</span>
+      <strong>${summary.recalledOnce}</strong>
+    </div>
+    <div class="coach-plan-callout">
+      <span>Next focus</span>
+      <strong>${nextTopic.code} / ${nextTopic.label}</strong>
+    </div>
+  `;
 }
 
 function renderDaily() {
@@ -494,6 +653,7 @@ window.__SYSFINALGAME__ = {
   reset: () => {
     state = defaultState();
     saveState();
+    app.repair = null;
     nextQuestion();
   }
 };

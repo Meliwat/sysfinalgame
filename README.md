@@ -4,7 +4,11 @@ Share link: <https://meliwat.github.io/sysfinalgame/>
 
 GitHub repo: <https://github.com/Meliwat/sysfinalgame>
 
-A dependency-free study game for the CSC 4320 Systems Administration final exam review. It turns the provided final-exam specification into rapid recall, exact command, port, permission, and boss-exam drills with persistent XP, levels, ranks, streaks, daily objectives, and topic mastery.
+A dependency-free study game for the CSC 4320 Systems Administration final exam review. It turns the provided final-exam specification into a guided Coach Path, rapid recall, exact command, port, permission, and boss-exam drills with persistent XP, levels, ranks, streaks, daily objectives, spaced review, and topic mastery.
+
+## Coach Path
+
+The default mode teaches before it drills. Each prompt includes a compact topic mental model, a hint ladder, and a `Teach me` escape hatch for when the material is unfamiliar. Missed concepts are queued for same-topic repair, correct answers get spaced-review dates, and progress labels distinguish new exposure from real recall.
 
 ## Use It
 
@@ -27,6 +31,8 @@ The app has no runtime npm dependencies. The dev server prints the local URL. By
 ```bash
 npm test
 ```
+
+The browser smoke test is optional and skips if Playwright is not installed. Core scheduling, scoring, command normalization, generated questions, and guided repair behavior run without extra dependencies.
 
 ## Coverage
 

@@ -19,6 +19,135 @@ export const TOPICS = [
   { id: "scripting", code: "SH", label: "Scripting", chapter: "CH06" }
 ];
 
+export const TOPIC_GUIDES = {
+  commands: {
+    title: "Commands are verbs with targets",
+    objective: "Read most shell tasks as command, options, source, then destination.",
+    points: ["`pwd` answers where am I.", "`cp source destination` copies without removing the source.", "`mv old new` renames or moves the source."],
+    hint: "Name the action first, then put paths in source-to-destination order.",
+    trap: "The common trap is reversing source and destination."
+  },
+  streams: {
+    title: "STDIN, STDOUT, STDERR",
+    objective: "Track which stream is being moved and whether the target file is replaced or appended.",
+    points: ["STDIN is file descriptor 0.", "STDOUT is 1 and STDERR is 2.", "`>` replaces, `>>` appends, and `2>` catches errors."],
+    hint: "Ask whether the prompt wants normal output, errors, or both.",
+    trap: "Redirection order matters because the shell processes it left to right."
+  },
+  permissions: {
+    title: "Permissions are three small sums",
+    objective: "Convert owner, group, and other permissions by adding r=4, w=2, x=1.",
+    points: ["7 is rwx, 6 is rw-, 5 is r-x, 4 is r--.", "Permission order is owner, group, other.", "Special bits use a fourth octal digit: SUID 4, SGID 2, sticky 1."],
+    hint: "Split the mode into owner, group, and other before doing any math.",
+    trap: "Capital S or T means the special bit exists but execute is missing."
+  },
+  architecture: {
+    title: "Three tiers reduce blast radius",
+    objective: "Place web, application, and data systems in separate trust zones.",
+    points: ["The web tier faces users and often lives in a DMZ.", "The app tier runs business logic.", "The data tier should not be directly reachable from the Internet."],
+    hint: "Ask which tier should be exposed and which tier should be protected.",
+    trap: "Do not put the database on the public edge."
+  },
+  cron: {
+    title: "Cron schedules are five fields",
+    objective: "Read user crontabs as minute, hour, day of month, month, day of week.",
+    points: ["`*` means every valid value.", "`*/5` means every five units in that field.", "Sunday is commonly 0 or 7."],
+    hint: "Translate the fields from left to right before reading the command.",
+    trap: "`5 * * * *` means minute 5 of every hour, not every 5 minutes."
+  },
+  init: {
+    title: "Init controls service state",
+    objective: "Connect classic run levels to modern systemd targets and service commands.",
+    points: ["Run level 0 halts and 6 reboots.", "Run level 3 maps to `multi-user.target`.", "Run level 5 maps to `graphical.target`."],
+    hint: "Separate current service state from boot-time enablement.",
+    trap: "`systemctl start` affects now; `systemctl enable` affects boot."
+  },
+  files: {
+    title: "The first `ls -l` character is the type",
+    objective: "Use the leading file-code character to identify the kind of path.",
+    points: ["`-` is a regular file.", "`d` is a directory and `l` is a symbolic link.", "`b` is a block device and `c` is a character device."],
+    hint: "Look only at the first character before the permission triads.",
+    trap: "Do not confuse `l` for long listing with `l` as a symlink marker."
+  },
+  path: {
+    title: "PATH is the command search list",
+    objective: "Know how shells find executables and why ordering changes behavior.",
+    points: ["PATH is colon-separated.", "Prepending gives a directory higher priority.", "Putting `.` in PATH can run an unsafe local program."],
+    hint: "Ask whether the new directory should win before or after existing entries.",
+    trap: "Appending and prepending are not equivalent."
+  },
+  monitoring: {
+    title: "Monitoring starts with the failing resource",
+    objective: "Choose tools by whether you need processes, disk, logs, or sockets.",
+    points: ["`top` shows live process activity.", "`df -h` shows filesystem free space.", "`journalctl` reads the systemd journal."],
+    hint: "Classify the symptom: CPU, disk, log, or network socket.",
+    trap: "`du` measures directory usage; `df` measures mounted filesystem space."
+  },
+  accounts: {
+    title: "Account files are structured tables",
+    objective: "Recall what `/etc/passwd`, `/etc/shadow`, and `/etc/group` store.",
+    points: ["`/etc/passwd` has seven colon-separated fields.", "UID 0 is root.", "`x` in passwd usually means the hash is in shadow."],
+    hint: "Identify which account file owns the fact being asked.",
+    trap: "`/etc/passwd` is not where modern password hashes live."
+  },
+  ports: {
+    title: "Ports identify network services",
+    objective: "Pair common services with well-known port numbers and protocols.",
+    points: ["SSH is 22/TCP and HTTP is 80/TCP.", "DNS is 53 over UDP and TCP.", "HTTPS is 443/TCP."],
+    hint: "Start with the service family: remote login, web, name service, or mail.",
+    trap: "DNS is not UDP-only; TCP is also used."
+  },
+  osi: {
+    title: "OSI layers name where a problem lives",
+    objective: "Map devices, protocols, and symptoms to the right network layer.",
+    points: ["Layer 1 is physical signal.", "Layer 3 is IP routing.", "Layer 4 is TCP/UDP transport."],
+    hint: "Ask whether the prompt is about cables, addresses, ports, or applications.",
+    trap: "Ports belong to transport, not network."
+  },
+  webflow: {
+    title: "Web requests are a chain",
+    objective: "Trace browser traffic through DNS, TCP, TLS, HTTP, and server response.",
+    points: ["DNS resolves a name to an address.", "TCP establishes a connection before HTTP over TCP.", "TLS protects HTTPS before application data flows."],
+    hint: "Put name lookup before connection setup.",
+    trap: "A URL is not directly sent until the client knows where to connect."
+  },
+  tcpudp: {
+    title: "TCP trades speed for reliability",
+    objective: "Choose TCP or UDP based on connection state, ordering, and retransmission needs.",
+    points: ["TCP has a handshake and ordered reliable delivery.", "UDP has no connection setup.", "DNS and streaming often use UDP when speed matters."],
+    hint: "Ask whether the service needs guaranteed ordered delivery.",
+    trap: "UDP is not always wrong; it is a different tradeoff."
+  },
+  dns: {
+    title: "DNS maps names to useful records",
+    objective: "Match DNS record types to what a client needs to find.",
+    points: ["A and AAAA map names to IP addresses.", "CNAME creates an alias.", "MX identifies mail exchangers."],
+    hint: "Look for whether the prompt asks for an address, alias, mail route, or name server.",
+    trap: "A CNAME is an alias, not the final IPv4 address."
+  },
+  apache: {
+    title: "Apache serves sites from config",
+    objective: "Recognize service control, config tests, document roots, and virtual hosts.",
+    points: ["`apachectl configtest` checks syntax.", "A virtual host maps names or ports to site config.", "The document root is where served files live."],
+    hint: "Separate service management from web-site configuration.",
+    trap: "Restarting before a config test can turn a syntax mistake into downtime."
+  },
+  networks: {
+    title: "IPv4 ranges reveal intent",
+    objective: "Recognize loopback, private ranges, and older classful network ranges.",
+    points: ["127.0.0.0/8 is loopback.", "10/8, 172.16/12, and 192.168/16 are private.", "Class A starts 1-126, B starts 128-191, C starts 192-223."],
+    hint: "Check the first octet, then ask whether the address is private or public.",
+    trap: "127.x.x.x is loopback, not a normal Class A host range for use on the LAN."
+  },
+  scripting: {
+    title: "Shell scripts combine commands with control flow",
+    objective: "Read scripts by following variables, tests, loops, and exit status.",
+    points: ["`$?` stores the last exit status.", "`if` branches on command success.", "`case` matches one input against patterns."],
+    hint: "Trace one small input through the script before generalizing.",
+    trap: "A command can print output and still fail; exit status is separate."
+  }
+};
+
 export const RANKS = [
   { level: 1, name: "Terminal Trainee" },
   { level: 3, name: "Shell Operator" },

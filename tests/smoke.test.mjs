@@ -3,7 +3,13 @@ import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
+
+let chromium;
+try {
+  ({ chromium } = await import("playwright"));
+} catch {
+  chromium = null;
+}
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const port = 4297;
@@ -12,6 +18,9 @@ const url = `http://127.0.0.1:${port}`;
 let server;
 let output = "";
 
+if (!chromium) {
+  test("browser smoke tests require Playwright", { skip: "Playwright is not installed in this dependency-free checkout." }, () => {});
+} else {
 test.before(async () => {
   server = spawn(process.execPath, ["server.mjs"], {
     cwd: root,
@@ -48,7 +57,13 @@ test("study game loads and answers a challenge", async () => {
     await page.waitForSelector("[data-testid='challenge-panel']");
     assert.equal(await page.title(), "SysFinalGame");
     assert.match(await page.locator("h1").textContent(), /SysFinalGame/);
+    assert.match(await page.locator("#modeTitle").textContent(), /Coach Path/);
+    assert.ok(await page.locator("[data-testid='coach-card']").isVisible());
     assert.ok((await page.locator("#questionPrompt").textContent()).length > 10);
+
+    await page.locator("[data-testid='hint-button']").click();
+    await page.waitForSelector("[data-testid='hint-box']:not([hidden])");
+    assert.match(await page.locator("[data-testid='hint-box']").textContent(), /Hint 1/);
 
     const choices = page.locator("[data-testid='choice-option']");
     if ((await choices.count()) > 0) {
@@ -112,3 +127,4 @@ test("command and boss modes are reachable", async () => {
     await browser.close();
   }
 });
+}

@@ -3,11 +3,16 @@ import test from "node:test";
 import {
   buildPermissionQuestion,
   buildPortQuestion,
+  buildGuidedQuestion,
+  conceptIdForQuestion,
   evaluateAnswer,
+  isReviewDue,
   levelFromXp,
   levelProgress,
+  masteryLabel,
   normalizeCommand,
   rankForLevel,
+  updateConceptSchedule,
   xpForLevel
 } from "../game-core.js";
 
@@ -42,4 +47,24 @@ test("generated permission questions know their own correct answer", () => {
     const question = buildPermissionQuestion();
     assert.equal(evaluateAnswer(question, question.type === "text" ? question.answer : question.answer), true);
   }
+});
+
+test("concept scheduling distinguishes first recall from spaced mastery", () => {
+  const question = { id: "ports-ssh", topic: "ports", difficulty: 2, prompt: "SSH port?" };
+  const first = updateConceptSchedule({}, true, question, new Date("2026-04-01T12:00:00Z"));
+  assert.equal(conceptIdForQuestion(question), "ports-ssh");
+  assert.equal(masteryLabel(first), "Recalled once");
+  assert.equal(first.nextReview, "2026-04-02");
+  assert.equal(isReviewDue(first, new Date("2026-04-01T12:00:00Z")), false);
+  assert.equal(isReviewDue(first, new Date("2026-04-02T12:00:00Z")), true);
+
+  const spaced = updateConceptSchedule(first, true, question, new Date("2026-04-03T12:00:00Z"));
+  assert.equal(masteryLabel(spaced), "Spaced");
+  assert.equal(spaced.nextReview, "2026-04-06");
+});
+
+test("guided repair can avoid repeating the failed question", () => {
+  const question = buildGuidedQuestion("init", {}, () => 0, { excludeIds: ["init-runlevel-0"] });
+  assert.notEqual(question.id, "init-runlevel-0");
+  assert.equal(question.topic, "init");
 });
