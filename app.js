@@ -276,7 +276,7 @@ function renderQuestion() {
     question.choices.forEach((choice, index) => {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "choice-option";
+      button.className = `choice-option ${index % 2 === 0 ? "is-arcane-blue" : "is-wood-brown"}`;
       button.dataset.testid = "choice-option";
       button.dataset.index = String(index);
       button.innerHTML = `<span class="choice-index">${choiceLetters(index)}</span><span class="choice-text"></span>`;
